@@ -10,8 +10,8 @@ import os
 # Use HuggingFace local embedding model
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# Set Hugging Face API key (used for LLM, not embeddings in this case)
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = ""
+# # Set Hugging Face API key (used for LLM, not embeddings in this case)
+# os.environ["HUGGINGFACEHUB_API_TOKEN"] = ""
 
 # Load LLM (e.g., FLAN-T5 or Mistral) from Hugging Face Hub
 llm = HuggingFaceHub(
