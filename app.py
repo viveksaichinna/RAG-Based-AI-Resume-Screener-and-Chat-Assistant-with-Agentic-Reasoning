@@ -15,8 +15,8 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 
 # Load LLM (e.g., FLAN-T5 or Mistral) from Hugging Face Hub
 llm = HuggingFaceHub(
-    repo_id="google/flan-t5-base",
-    model_kwargs={"temperature": 0.5, "max_length": 512}
+    repo_id="tiiuae/falcon-7b-instruct",  # or another generation-supported model
+    model_kwargs={"temperature": 0.5, "max_new_tokens": 512}
 )
 
 st.title("📄 Chat with your PDF")
