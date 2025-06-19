@@ -1,0 +1,6 @@
+{
+    "name": "My Codespace Environment",
+    "image": "mcr.microsoft.com/devcontainers/python:3.10",  // or another base image
+    "postCreateCommand": "pip install -r requirements.txt"
+  }
+  
