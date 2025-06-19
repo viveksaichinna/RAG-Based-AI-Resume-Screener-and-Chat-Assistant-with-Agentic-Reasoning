@@ -1,45 +1,76 @@
+# streamlit_app.py
+
 import streamlit as st
-from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain.chains.question_answering import load_qa_chain
-from langchain_community.llms import HuggingFaceHub
-from langchain.embeddings import HuggingFaceEmbeddings
 import os
+import shutil
+from main import *
 
-# Use HuggingFace local embedding model
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+DB_PATH = "./chroma_db"
+COLLECTION_NAME = "rag_collection"
 
-# # Set Hugging Face API key (used for LLM, not embeddings in this case)
-# os.environ["HUGGINGFACEHUB_API_TOKEN"] = ""
 
-# Load LLM (e.g., FLAN-T5 or Mistral) from Hugging Face Hub
-llm = HuggingFaceHub(
-    repo_id="tiiuae/falcon-7b-instruct",  # or another generation-supported model
-    model_kwargs={"temperature": 0.5, "max_new_tokens": 512}
-)
+st.set_page_config(page_title="RAG PDF Chat", layout="wide")
 
-st.title("📄 Chat with your PDF")
+# Session states
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "collection" not in st.session_state:
+    st.session_state.collection = None
+
+st.sidebar.title("📚 RAG PDF Chat")
+st.sidebar.markdown("Upload a PDF and start chatting!")
 
 # Upload PDF
-pdf = st.file_uploader("Upload your PDF", type="pdf")
-if pdf:
-    reader = PdfReader(pdf)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text()
+uploaded_file = st.sidebar.file_uploader("Upload PDF", type=["pdf"])
+if uploaded_file:
+    pdf_path = os.path.join("pdfs", uploaded_file.name)
+    os.makedirs("pdfs", exist_ok=True)
+    with open(pdf_path, "wb") as f:
+        f.write(uploaded_file.read())
+    st.sidebar.success(f"Uploaded {uploaded_file.name}")
 
-    # Split text into chunks
-    splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = splitter.split_text(text)
+    # Process the PDF
+    text = pdf_reader(pdf_path)
+    chunks = textsplitter(text)
 
-    # Create vector DB from chunks
-    db = FAISS.from_texts(chunks, embeddings)
+    # Recreate and load collection with fresh data
+    collection = add_documents(DB_PATH, COLLECTION_NAME, chunks)
+    st.session_state.collection = collection
+    st.success("PDF processed and stored into fresh collection!")
 
-    # Input query
-    query = st.text_input("Ask your PDF:")
-    if query:
-        docs = db.similarity_search(query)
-        chain = load_qa_chain(llm, chain_type="stuff")
-        result = chain.run(input_documents=docs, question=query)
-        st.write(result)
+
+# New chat button
+if st.sidebar.button("➕ New Chat"):
+    st.session_state.chat_history = []
+
+st.title("🧠 Chat with your PDF")
+
+# User input
+user_query = st.text_input("Ask a question based on the PDF:")
+
+if user_query and st.session_state.collection:
+    # Query DB
+    retrieved_chunks = query_collection(st.session_state.collection, user_query)
+    context = "\n".join(retrieved_chunks)
+
+    # Construct prompt
+    prompt = f"""
+Using the following context, answer the question. If the answer is not in the context,
+say you don't know.
+
+Context:
+{context}
+
+Question: {user_query}
+
+Answer:
+"""
+    # Get response
+    response = generate_answer(prompt)
+    st.session_state.chat_history.append(("You", user_query))
+    st.session_state.chat_history.append(("Bot", response))
+
+# Display chat history
+for sender, message in st.session_state.chat_history:
+    with st.chat_message("user" if sender == "You" else "assistant"):
+        st.markdown(message)
