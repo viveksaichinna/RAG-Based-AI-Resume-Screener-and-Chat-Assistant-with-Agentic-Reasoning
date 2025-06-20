@@ -46,6 +46,7 @@ explorellm/
 ```bash
 git clone https://github.com/yourusername/explorellm.git
 cd explorellm
+```
 
 ```bash
 python3 -m venv venv
