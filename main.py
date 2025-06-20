@@ -25,44 +25,33 @@ def textsplitter(text):
 def init_vector_db(db_path=DB_PATH, collection_name=COLLECTION_NAME):
     client = chromadb.PersistentClient(path=db_path)
 
-    class DummyEmbeddingFunction:
-        def __call__(self, input):
-            if isinstance(input, str):
+    # Load real embedding model
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    class SBERTEmbeddingFunction:
+        def _call_(self, input: list[str]) -> list[list[float]]:
+            if isinstance(input, str):  # Optional, defensive
                 input = [input]
-            return [[len(x)] for x in input]
+            return model.encode(input).tolist()
+
         def name(self):
-            return "dummy"
+            return "sbert-mini"
 
-    return client.get_or_create_collection(name=collection_name, embedding_function=DummyEmbeddingFunction())
-
-def add_documents(db_path, collection_name, chunks):
-    import chromadb
-
-    # Delete and recreate the collection to ensure it's clean
-    client = chromadb.PersistentClient(path=db_path)
-
-    # Delete collection if it exists
-    existing = client.list_collections()
-    if any(c.name == collection_name for c in existing):
-        client.delete_collection(name=collection_name)
-
-    # Recreate fresh collection
-    class DummyEmbeddingFunction:
-        def __call__(self, input):
-            if isinstance(input, str):
-                input = [input]
-            return [[len(x)] for x in input]
-        def name(self):
-            return "dummy"
+    embedding_function = SBERTEmbeddingFunction()
 
     collection = client.get_or_create_collection(
         name=collection_name,
-        embedding_function=DummyEmbeddingFunction()
+        embedding_function=embedding_function
     )
-
-    ids = [f"chunk_{i}" for i in range(len(chunks))]
-    collection.add(documents=chunks, ids=ids)
     return collection
+# 4. Add documents (chunks) to ChromaDB
+def add_documents_to_collection(collection, chunks):
+    if collection.count() == 0:
+        ids = [f"pdf_chunk_{i}" for i in range(len(chunks))]
+        print(f"Adding {len(chunks)} chunks to the vector DB...")
+        collection.add(documents=chunks, ids=ids)
+    else:
+        print("Collection already populated.")
 
 def query_collection(collection, query, n_results=2):
     return collection.query(query_texts=[query], n_results=n_results)["documents"][0]
