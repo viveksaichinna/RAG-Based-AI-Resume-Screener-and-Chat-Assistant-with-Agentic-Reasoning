@@ -4,10 +4,10 @@ from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import chromadb
 from chromadb.utils import embedding_functions
-
+from sentence_transformers import SentenceTransformer
 
 # Constants
-PDF_PATH = "/workspaces/explorellm/resume.pdf"
+PDF_PATH = "/workspaces/explorellm/Vivek_B_Resume_DE2.pdf"
 DB_PATH = "./chroma_db"
 COLLECTION_NAME = "rag_collection"
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.1"  # Together.ai model
@@ -45,23 +45,25 @@ def textsplitter(text):
 def init_vector_db(db_path=DB_PATH, collection_name=COLLECTION_NAME):
     client = chromadb.PersistentClient(path=db_path)
 
-    class DummyEmbeddingFunction:
-        def __call__(self, input):
-            if isinstance(input, str):
+    # Load real embedding model
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    class SBERTEmbeddingFunction:
+        def __call__(self, input: list[str]) -> list[list[float]]:
+            if isinstance(input, str):  # Optional, defensive
                 input = [input]
-            return [[len(text)] for text in input]
+            return model.encode(input).tolist()
 
         def name(self):
-            return "dummy"
+            return "sbert-mini"
 
-    embedding_function = DummyEmbeddingFunction()
+    embedding_function = SBERTEmbeddingFunction()
 
     collection = client.get_or_create_collection(
         name=collection_name,
         embedding_function=embedding_function
     )
     return collection
-
 # 4. Add documents (chunks) to ChromaDB
 def add_documents_to_collection(collection, chunks):
     if collection.count() == 0:

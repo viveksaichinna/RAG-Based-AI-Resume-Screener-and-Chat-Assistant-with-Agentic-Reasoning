@@ -1,0 +1,6 @@
+pypdf
+requests
+langchain-text-splitters
+chromadb
+sentence-transformers
+streamlit
