@@ -99,6 +99,40 @@ def generate_answer_with_together(prompt):
         print("Error:", response.status_code, response.text)
         return None
 
+def simple_planner(query):
+    query_lower = query.lower()
+    if "summarize" in query_lower:
+        return "summarize"
+    elif "hr" in query_lower and "action" in query_lower:
+        return "extract_hr"
+    else:
+        return "general"
+# Tool 1: Summarizer
+def tool_summarize(text):
+    prompt = f"Summarize the following text:\n\n{text}\n\nSummary:"
+    return generate_answer_with_together(prompt)
+
+# Tool 2: Extract HR-related action items
+def tool_extract_hr_tasks(text):
+    prompt = f"From the following text, extract action items relevant to the HR department:\n\n{text}\n\nItems:"
+    return generate_answer_with_together(prompt)
+
+# Tool 3: Answer general question
+def tool_answer_question(text, question):
+    prompt = f"""
+Using the following context, answer the question. If the answer is not in the context,
+say you don't know.
+
+Context:
+{text}
+
+Question: {question}
+
+Answer:
+"""
+    return generate_answer_with_together(prompt)
+
+
 # Main function
 def main():
     print("Reading PDF...")
@@ -124,21 +158,36 @@ def main():
     for i, chunk in enumerate(retrieved_chunks):
         print(f"\nChunk {i+1}:\n{chunk}")
 
+#     context = "\n".join(retrieved_chunks)
+#     prompt = f"""
+# Using the following context, answer the question. If the answer is not in the context,
+# say you don't know.
+
+# Context:
+# {context}
+
+# Question: {query}
+
+# Answer:
+# """
+
+#     print("\nGenerating answer from Together.ai LLM...")
+#     answer = generate_answer_with_together(prompt)
+
     context = "\n".join(retrieved_chunks)
-    prompt = f"""
-Using the following context, answer the question. If the answer is not in the context,
-say you don't know.
+    action = simple_planner(query)
 
-Context:
-{context}
+    print(f"\n[Agent Plan]: Detected intent → {action}")
 
-Question: {query}
+    if action == "summarize":
+        answer = tool_summarize(context)
+    elif action == "extract_hr":
+        answer = tool_extract_hr_tasks(context)
+    else:
+        answer = tool_answer_question(context, query)
 
-Answer:
-"""
-
-    print("\nGenerating answer from Together.ai LLM...")
-    answer = generate_answer_with_together(prompt)
+    print("\n--- Agentic Answer ---")
+    print(answer if answer else "Failed to generate answer.")
     if answer:
         print("\n--- Generated Answer ---")
         print(answer)
